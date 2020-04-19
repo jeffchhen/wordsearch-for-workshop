@@ -1,4 +1,50 @@
+require('dotenv').config({
+  path: `.env.production`,
+});
+const axios = require('axios');
+const getAuthorizationToken = () => {
+  return axios
+    .post(
+      "https://stitch.mongodb.com/api/client/v2.0/app/testapp-kcwun/auth/providers/local-userpass/login",
+      {
+        username: "notjeffchhen@gmail.com",
+        password: "blahblah"
+      },
+      {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    )
+    .then(res => `Bearer ${res.data.access_token}`);
+};
+
+const blogQuery = `{
+  allMarkdownRemark{
+    nodes {
+      frontmatter {
+        title 
+        date
+        description
+      }
+      fields{
+        slug
+      }
+      excerpt
+      html
+    }
+  }
+}`;
+
+const queries = [
+  {
+    query: blogQuery,
+    transformer: ({ data }) => data.allMarkdownRemark.nodes // optional
+    
+  },
+];
 module.exports = {
+
   siteMetadata: {
     title: `Gatsby Starter Blog`,
     author: {
@@ -11,7 +57,24 @@ module.exports = {
       twitter: `kylemathews`,
     },
   },
+  
   plugins: [
+    {
+      resolve: "gatsby-source-graphql",
+      options: {
+        // Arbitrary name for the remote schema Query type
+        typeName: "Recipe",
+        // Field under which the remote schema will be accessible. You'll use this in your Gatsby query
+        fieldName: "recipe",
+        // Url to query from
+        url: "https://us-west-2.aws.stitch.mongodb.com/api/client/v2.0/app/testapp-kcwun/graphql",
+        headers: async () => {
+          return {
+            Authorization: await getAuthorizationToken(),
+          }
+        },
+      },
+    },
     {
       resolve: `gatsby-source-filesystem`,
       options: {
@@ -76,8 +139,21 @@ module.exports = {
         pathToConfigModule: `src/utils/typography`,
       },
     },
+    {
+      resolve: `gatsby-plugin-algolia`,
+      options: {
+        appId: process.env.GATSBY_ALGOLIA_APP_ID,
+        apiKey: process.env.ALGOLIA_ADMIN_KEY,
+        indexName: process.env.ALGOLIA_INDEX_NAME, // for all queries
+        queries,
+        chunkSize: 10000, // default: 1000
+      },
+    },
+    
+ 
     // this (optional) plugin enables Progressive Web App + Offline functionality
     // To learn more, visit: https://gatsby.dev/offline
     // `gatsby-plugin-offline`,
   ],
+
 }
